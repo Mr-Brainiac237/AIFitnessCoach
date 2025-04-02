@@ -2,6 +2,7 @@
 import os
 import argparse
 import pandas as pd
+import torch
 from src.data.api_fetcher import fetch_and_merge_data
 from src.data.preprocessor import ExerciseDataPreprocessor
 from src.models.classifier import ExerciseClassifier
@@ -54,42 +55,83 @@ def main():
         
         models = classifier.train_all_models(target_columns)
         print("Model training complete.")
-    
+
     # Make predictions
     if args.predict:
         print("Making predictions...")
         # This would typically be used for new data
         # For demonstration purposes, we'll use the training data
-        
-        classifier = ExerciseClassifier()
+
         df = pd.read_csv("data/processed/exercisedb_processed.csv")
-        
+
         # Load models
         for target_col in ['movement_pattern', 'is_compound', 'risk_assessment']:
-            if os.path.exists(f"models/{target_col}_model.pth"):
-                # Create model architecture
-                features = classifier._split_features(df)
-                
-                # Determine number of classes
-                if target_col == 'is_compound':
-                    num_classes = 2  # binary
-                else:
+            model_path = f"models/{target_col}_model.pth"
+
+            if os.path.exists(model_path):
+                print(f"Making predictions for {target_col}...")
+
+                # Create a fresh classifier instance
+                classifier = ExerciseClassifier()
+
+                # Load the saved scalers, encoders, and metadata
+                try:
+                    # Load model metadata
+                    metadata_path = f"models/{target_col}_metadata.pkl"
+                    if os.path.exists(metadata_path):
+                        metadata = joblib.load(metadata_path)
+                        num_classes = metadata['num_classes']
+                        print(f"  Loaded model metadata: {num_classes} classes")
+                    else:
+                        # Fall back to checking the model architecture
+                        state_dict = torch.load(model_path)
+                        num_classes = state_dict['combined_layers.3.bias'].shape[0]
+                        print(f"  Detected {num_classes} classes from model architecture")
+
+                    # Load scalers
+                    text_scaler_path = f"models/{target_col}_text_scaler.pkl"
+                    pose_scaler_path = f"models/{target_col}_pose_scaler.pkl"
+                    encoder_path = f"models/{target_col}_encoder.pkl"
+
+                    if os.path.exists(text_scaler_path) and os.path.exists(pose_scaler_path):
+                        print("  Loading saved scalers")
+                        classifier.text_scaler = joblib.load(text_scaler_path)
+                        classifier.pose_scaler = joblib.load(pose_scaler_path)
+                    else:
+                        print("  Warning: Scalers not found, fitting on current data")
+                        features = classifier._split_features(df)
+                        classifier.text_scaler.fit(features['text'])
+                        classifier.pose_scaler.fit(features['pose'])
+
+                    # Load encoder
+                    if os.path.exists(encoder_path):
+                        print("  Loading saved encoder")
+                        classifier.target_encoders[target_col] = joblib.load(encoder_path)
+
+                except Exception as e:
+                    print(f"  Error loading saved components: {e}")
+                    print("  Falling back to defaults")
+                    features = classifier._split_features(df)
                     num_classes = df[target_col].nunique()
-                
-                # Create and load model
+                    classifier.text_scaler.fit(features['text'])
+                    classifier.pose_scaler.fit(features['pose'])
+
+                # Create and load model with the correct number of classes
+                features = classifier._split_features(df)
                 model = classifier.create_model(features, num_classes)
-                model.load_state_dict(pd.read_pickle(f"models/{target_col}_model.pth"))
-                
+                model.load_state_dict(torch.load(model_path))
+
                 # Make predictions
                 predictions = classifier.predict(model, df, target_col)
-                
+
                 # Save predictions
                 df[f"{target_col}_pred"] = predictions
-        
+                print(f"  Predictions complete for {target_col}")
+
         # Save results
         df.to_csv("data/predictions.csv", index=False)
         print("Predictions saved to data/predictions.csv")
-    
+
     print("Done.")
 
 if __name__ == '__main__':

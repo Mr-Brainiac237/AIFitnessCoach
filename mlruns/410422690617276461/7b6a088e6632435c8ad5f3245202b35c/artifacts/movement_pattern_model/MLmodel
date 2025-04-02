@@ -1,0 +1,22 @@
+artifact_path: movement_pattern_model
+flavors:
+  python_function:
+    config:
+      device: null
+    data: data
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pytorch
+    pickle_module_name: mlflow.pytorch.pickle_module
+    python_version: 3.12.6
+  pytorch:
+    code: null
+    model_data: data
+    pytorch_version: 2.6.0+cpu
+mlflow_version: 2.21.2
+model_size_bytes: 160750
+model_uuid: 3c7af0abd1f240de94310bfc10f7d223
+prompts: null
+run_id: 7b6a088e6632435c8ad5f3245202b35c
+utc_time_created: '2025-04-02 01:06:29.897311'

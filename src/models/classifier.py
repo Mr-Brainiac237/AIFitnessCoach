@@ -5,6 +5,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import joblib
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -212,7 +213,7 @@ class ExerciseClassifier:
         
         return model.to(self.device)
     
-    def train_model(self, 
+    def train_model(self,
                     df: pd.DataFrame,
                     target_col: str,
                     batch_size: int = 32,
@@ -240,17 +241,42 @@ class ExerciseClassifier:
         
         # Prepare data
         features, labels = self._prepare_data(df, target_col)
+
+        # Save the fitted scalers and encoders
+        joblib.dump(self.text_scaler, f"{self.model_dir}/{target_col}_text_scaler.pkl")
+        joblib.dump(self.pose_scaler, f"{self.model_dir}/{target_col}_pose_scaler.pkl")
+        joblib.dump(self.target_encoders[target_col], f"{self.model_dir}/{target_col}_encoder.pkl")
+
+        # Save metadata about the model
+        model_metadata = {
+            'num_classes': len(np.unique(labels)),
+            'text_input_dim': features['text'].shape[1],
+            'pose_input_dim': features['pose'].shape[1]
+        }
+        joblib.dump(model_metadata, f"{self.model_dir}/{target_col}_metadata.pkl")
         
         # Split into train and validation sets
         X_train = {}
         X_val = {}
-        
+
         # Split each feature set
         for key in features:
-            X_train[key], X_val[key], y_train, y_val = train_test_split(
-                features[key], labels, test_size=val_size, random_state=42, stratify=labels
-            )
-        
+            try:
+                # Try stratified split first
+                X_train[key], X_val[key], y_train, y_val = train_test_split(
+                    features[key], labels, test_size=val_size, random_state=42, stratify=labels
+                )
+            except ValueError as e:
+                if "The least populated class in y has only 1 member" in str(e):
+                    # Fall back to regular split if stratification fails
+                    print(
+                        f"Warning: Cannot stratify {target_col} due to insufficient class samples. Using regular split.")
+                    X_train[key], X_val[key], y_train, y_val = train_test_split(
+                        features[key], labels, test_size=val_size, random_state=42
+                    )
+                else:
+                    # Re-raise if it's a different error
+                    raise
         # Create datasets
         train_text = torch.tensor(X_train['text'], dtype=torch.float32)
         train_pose = torch.tensor(X_train['pose'], dtype=torch.float32)
