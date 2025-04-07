@@ -48,12 +48,34 @@ class ExerciseDBFetcher:
     
     def get_all_exercises(self) -> List[Dict]:
         """
-        Fetch all exercises from the API
+        Fetch all exercises from the API with pagination
         
         Returns:
             List of exercise dictionaries
         """
-        return self._make_request("")
+        all_exercises = []
+        limit = 100  # Maximum number of exercises per request
+        offset = 0
+        
+        while True:
+            params = {
+                "limit": limit,
+                "offset": offset
+            }
+            exercises = self._make_request("", params)
+            
+            if not exercises:  # No more exercises to fetch
+                break
+                
+            all_exercises.extend(exercises)
+            
+            if len(exercises) < limit:  # We've reached the end
+                break
+                
+            offset += limit
+            time.sleep(1)  # Add a small delay to avoid rate limiting
+            
+        return all_exercises
     
     def get_exercise_by_id(self, exercise_id: str) -> Dict:
         """
