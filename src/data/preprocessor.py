@@ -70,8 +70,7 @@ class ExerciseDataPreprocessor:
         cleaned_df.columns = [col.lower().replace(' ', '_') for col in cleaned_df.columns]
         
         # Convert all string columns to lowercase
-        for col in cleaned_df.select_dtypes(include=['object']).columns:
-            cleaned_df[col] = cleaned_df[col].str.lower()
+        
         
         # Extract movement patterns from exercise names and descriptions
         cleaned_df['movement_pattern'] = cleaned_df.apply(
@@ -214,8 +213,8 @@ class ExerciseDataPreprocessor:
         Returns:
             DataFrame with added pose feature columns
         """
-        if 'gifUrl' not in df.columns:
-            raise ValueError("DataFrame must contain 'gifUrl' column")
+        if 'gifurl' not in df.columns:
+            raise ValueError("DataFrame must contain 'gifurl' column")
         
         # Initialize MediaPipe Pose
         mp_pose = mp.solutions.pose
@@ -234,7 +233,7 @@ class ExerciseDataPreprocessor:
         for i, row in tqdm(process_df.iterrows(), total=len(process_df), desc="Processing images"):
             try:
                 # Download image
-                response = requests.get(row['gifUrl'])
+                response = requests.get(row['gifurl'])
                 response.raise_for_status()
                 
                 # For GIFs, extract the first frame
@@ -264,7 +263,7 @@ class ExerciseDataPreprocessor:
                 cv2.imwrite(image_path, cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR))
                 
             except Exception as e:
-                print(f"Error processing image {row['gifUrl']}: {e}")
+                print(f"Error processing image {row['gifurl']}: {e}")
                 landmarks_list.append([0] * (33 * 4))
         
         # Create feature columns for landmarks
