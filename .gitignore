@@ -84,5 +84,7 @@ ehthumbs.db
 Thumbs.db 
 
 #models and MLruns
-.models/*
-.mlruns/*
+models/*
+!models/.gitkeep
+mlruns/*
+!mlruns/.gitkeep
