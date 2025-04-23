@@ -103,7 +103,7 @@ python main.py --preprocess
 To also process exercise images (takes longer):
 
 ```bash
-python main.py --preprocess --process_images --image_limit 100
+python main.py --preprocess --process_images --image_limit 1325
 ```
 
 ### 3. Model Training
